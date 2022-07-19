@@ -4,11 +4,8 @@ HERE := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 ##########################################################
 
 PHP_VERSION := 7.4
-SWOOLE_VERSION := 4.8.2
-OPEN_SWOOLE_VERSION := 4.8.0
-S3_BUCKET := uploads.mwop.net
-S3_SUBDIR := laminas-ci
-PACKAGE_FILE := swoole-$(SWOOLE_VERSION)-openswoole-$(OPEN_SWOOLE_VERSION).tgz
+SWOOLE_VERSION := 4.8.11
+OPEN_SWOOLE_VERSION := 4.11.1
 
 .PHONY:
 
@@ -31,50 +28,44 @@ container:  ## Build a single PHP container based on PHP_VERSION
 containers:  ## Create all PHP containers for building extensions
 	@printf "\n\033[92mBuilding all containers ...\033[0m\n"
 	for VERSION in 7.3 7.4 8.0 8.1;do \
-		printf "\n\033[92mBuilding container for PHP $$VERSION ...\033[0m\n" \
-		docker build -t laminas/laminas-ext-builder:$$VERSION --build-arg PHP_VERSION=$$VERSION . \
-		printf "\n\033[92mBuilt container for PHP $$VERSION\033[0m\n" \
+		printf "\n\033[92mBuilding container for PHP $$VERSION ...\033[0m\n" ; \
+		docker build -t laminas/laminas-ext-builder:$$VERSION --build-arg PHP_VERSION=$$VERSION . ; \
+		printf "\n\033[92mBuilt container for PHP $$VERSION\033[0m\n" ; \
 	done
 	@printf "\n\033[92mBuilt all containers\033[0m\n"
 
 ##@ Build extensions
 
-swoole:  ## Build Swoole version SWOOLE_VERSION using PHP_VERSION container image
+swoole: clean-artifacts  ## Build Swoole version SWOOLE_VERSION using PHP_VERSION container image
 	@printf "\n\033[92mBuilding Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
 	docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$(PHP_VERSION) swoole $(SWOOLE_VERSION)
-	@printf "\n\033[92mBuilt Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
+	@printf "\n\033[92mPackaging Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
+	cd artifacts && tar czf ../php$(PHP_VERSION)-swoole.tgz . -vv
+	@printf "\n\033[92mBuilt and packaged Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
 
-openswoole:  ## Build OpenSwoole version OPEN_SWOOLE_VERSION using PHP_VERSION container image
+openswoole: clean-artifacts  ## Build OpenSwoole version OPEN_SWOOLE_VERSION using PHP_VERSION container image
 	@printf "\n\033[92mBuilding OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
 	docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$(PHP_VERSION) openswoole $(OPEN_SWOOLE_VERSION)
-	@printf "\n\033[92mBuilt OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
+	@printf "\n\033[92mPackaging OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
+	cd artifacts && tar czf ../php$(PHP_VERSION)-openswoole.tgz . -vv
+	@printf "\n\033[92mBuilt and packaged OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
 
-allswoole:  ## Build both swoole and openswoole for a given PHP_VERSION
-	@printf "\n\033[92mBuilding Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
-	docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$(PHP_VERSION) swoole $(SWOOLE_VERSION)
-	@printf "\n\033[92mBuilt Swoole $(SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
-	@printf "\n\033[92mBuilding OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)...\033[0m\n"
-	docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$(PHP_VERSION) openswoole $(OPEN_SWOOLE_VERSION)
-	@printf "\n\033[92mBuilt OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
-
-allswooleallphp:  ## Build both swoole and openswoole for all supported PHP versions
+all:  ## Build and package both Swoole and OpenSwoole for all supported PHP versions
 	for VERSION in 7.3 7.4 8.0 8.1;do \
-		printf "\n\033[92mBuilding Swoole $(SWOOLE_VERSION) for PHP version $$VERSION...\033[0m\n" \
-		docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$$VERSION swoole $(SWOOLE_VERSION) \
-		printf "\n\033[92mBuilt Swoole $(SWOOLE_VERSION) for PHP version $$VERSION\033[0m\n" \
-		printf "\n\033[92mBuilding OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $$VERSION...\033[0m\n" \
-		docker run -v $(shell realpath .)/artifacts:/artifacts laminas/laminas-ext-builder:$$VERSION openswoole $(OPEN_SWOOLE_VERSION) \
-		printf "\n\033[92mBuilt OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $$VERSION\033[0m\n" \
+		cd $(HERE) ; \
+		make swoole PHP_VERSION=$$VERSION ; \
+		cd $(HERE) ; \
+		make openswoole PHP_VERSION=$$VERSION ; \
 	done
 
-##@ Packaging and upload
+##@ Cleanup
 
-package:  ## Package the artifacts
-	@printf "\n\033[92mPackaging artifacts...\033[0m\n"
-	cd artifacts && tar czf ../swoole-$(SWOOLE_VERSION)-openswoole-$(OPEN_SWOOLE_VERSION).tgz . -vv
-	@printf "\n\033[92mDone packaging artifacts\033[0m\n"
+clean-artifacts:  ## Cleanup artifacts directory
+	@printf "\n\033[92mCleaning up artifacts...\033[0m\n"
+	cd $(HERE)/artifacts && sudo rm -rf ./*
 
-upload: $(PACKAGE_FILE)  ## Upload the artifacts
-	@printf "\n\033[92mUploading artifacts...\033[0m\n"
-	aws s3 cp $(PACKAGE_FILE) s3://$(S3_BUCKET)/$(S3_SUBDIR)/$(PACKAGE_FILE)
-	@printf "\n\033[92mUploaded artifacts\033[0m\n"
+clean-packages:  ## Cleanup (remove) previously built packages
+	@printf "\n\033[92mCleaning up artifacts...\033[0m\n"
+	cd $(HERE) && rm -rf *.tgz
+
+clean: clean-artifacts clean-packages ## Cleanup (remove) all artifacts and packages
