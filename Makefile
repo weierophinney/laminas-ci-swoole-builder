@@ -4,8 +4,8 @@ HERE := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 ##########################################################
 
 PHP_VERSION := 7.4
-SWOOLE_VERSION := 4.8.11
-OPEN_SWOOLE_VERSION := 4.11.1
+SWOOLE_VERSION := 4.8.12
+OPEN_SWOOLE_VERSION := 4.12.0
 
 .PHONY:
 
