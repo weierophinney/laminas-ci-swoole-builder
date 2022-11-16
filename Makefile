@@ -4,8 +4,8 @@ HERE := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 ##########################################################
 
 PHP_VERSION := 7.4
-SWOOLE_VERSION := 4.8.11
-OPEN_SWOOLE_VERSION := 4.11.1
+SWOOLE_VERSION := 4.8.12
+OPEN_SWOOLE_VERSION := 4.12.0
 
 .PHONY:
 
@@ -27,7 +27,7 @@ container:  ## Build a single PHP container based on PHP_VERSION
 
 containers:  ## Create all PHP containers for building extensions
 	@printf "\n\033[92mBuilding all containers ...\033[0m\n"
-	for VERSION in 7.3 7.4 8.0 8.1;do \
+	for VERSION in 7.3 7.4 8.0 8.1 8.2;do \
 		printf "\n\033[92mBuilding container for PHP $$VERSION ...\033[0m\n" ; \
 		docker build -t laminas/laminas-ext-builder:$$VERSION --build-arg PHP_VERSION=$$VERSION . ; \
 		printf "\n\033[92mBuilt container for PHP $$VERSION\033[0m\n" ; \
@@ -51,7 +51,7 @@ openswoole: clean-artifacts  ## Build OpenSwoole version OPEN_SWOOLE_VERSION usi
 	@printf "\n\033[92mBuilt and packaged OpenSwoole $(OPEN_SWOOLE_VERSION) for PHP version $(PHP_VERSION)\033[0m\n"
 
 all:  ## Build and package both Swoole and OpenSwoole for all supported PHP versions
-	for VERSION in 7.3 7.4 8.0 8.1;do \
+	for VERSION in 7.3 7.4 8.0 8.1 8.2;do \
 		cd $(HERE) ; \
 		make swoole PHP_VERSION=$$VERSION ; \
 		cd $(HERE) ; \
